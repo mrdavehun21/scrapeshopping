@@ -3,43 +3,79 @@
 import { useState } from 'react';
 
 export default function Home() {
-  const [input, setInput] = useState('');
-  const [response, setResponse] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const [stores, setStores] = useState<string[]>([]);
+  const [result, setResult] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleStoreChange = (store: string) => {
+    setStores((prev) =>
+      prev.includes(store) ? prev.filter((s) => s !== store) : [...prev, store]
+    );
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true); // start loading
+    setResult('');
 
-    const res = await fetch('/api/search', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: input }),
-    });
+    try {
+      const res = await fetch('/api/search', {
+        method: 'POST',
+        body: JSON.stringify({ query, stores }),
+        headers: { 'Content-Type': 'application/json' },
+      });
 
-    const data = await res.json();
-    setResponse(data.result); // assuming your Puppeteer returns something
+      const data = await res.json();
+      setResult(JSON.stringify(data, null, 2));
+    } catch (error) {
+      setResult('An error occurred while fetching results.');
+    }
+
+    setLoading(false); // end loading
   };
 
   return (
-    <main className="p-4">
-      <form onSubmit={handleSubmit}>
-        <label htmlFor="search">Enter search terms:</label>
+    <main className="p-6 max-w-xl mx-auto">
+      <form onSubmit={handleSubmit} className="space-y-4">
         <input
           type="text"
-          id="search"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          className="border p-2 m-2"
+          placeholder="Search term..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className="border p-2 w-full"
+          required
         />
-        <button type="submit" className="bg-blue-500 text-white px-4 py-2">
-          Search
+        <div className="flex flex-col space-y-1">
+          {['Spar', 'Auchan', 'Aldi', 'Lidl'].map((store) => (
+            <label key={store} className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                value={store}
+                checked={stores.includes(store)}
+                onChange={() => handleStoreChange(store)}
+              />
+              {store}
+            </label>
+          ))}
+        </div>
+        <button
+          type="submit"
+          disabled={loading}
+          className={`px-4 py-2 rounded ${
+            loading ? 'bg-gray-400' : 'bg-blue-600'
+          } text-white`}
+        >
+          {loading ? 'Searching...' : 'Search'}
         </button>
       </form>
 
-      {response && (
-        <div className="mt-4 p-4 bg-gray-100">
-          <h2>Search Result:</h2>
-          <pre>{response}</pre>
-        </div>
+      {loading && (
+        <div className="mt-6 text-blue-600 font-medium">Loading results...</div>
+      )}
+
+      {result && !loading && (
+        <pre className="mt-6 p-4 bg-gray-100 border rounded overflow-x-auto">{result}</pre>
       )}
     </main>
   );
